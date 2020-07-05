@@ -1,0 +1,5 @@
+To control rc car you can use mouse or folowing keyboard keys:
+w/s - increase/decrease speed limit.
+e - take photo.
+r - start and stop recording video.
+arrow keys - to drive.
