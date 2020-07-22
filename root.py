@@ -1,10 +1,10 @@
 import tkinter as tk
 from buttons import ImgButton
 from joystick import Joysitck
-from motor import Motors
+from motor import MotorsController
 from speed_bar import SpeedBar
 from camera import Camera
-from keyboard import Keyboard
+from keyboard import Keyboard, Key
 import cv2
 
 
@@ -16,7 +16,7 @@ class MainApplication(tk.Frame):
         """
         tk.Frame.__init__(self, master)
         self.master = master
-        self.motors = Motors()
+        self.motors = MotorsController()
         self.bg_color = "grey"
         self.create_right_frame()
         self.create_left_frame()
@@ -42,14 +42,14 @@ class MainApplication(tk.Frame):
                                            relief="groove", borderwidth=5, bg=self.bg_color)
         self.speed_limit_up_button = tk.Button(self.frame_left, bg=self.bg_color, text="+", command=self.speed_limit_up)
         self.speed_limit_down_button = tk.Button(self.frame_left, bg=self.bg_color, text="-", command=self.speed_limit_down)
-        self.left_motor_speed_bar = SpeedBar(self.frame_left, "L", self.motors.get_rel_left_speed)
-        self.right_motor_speed_bar = SpeedBar(self.frame_left, "R", self.motors.get_rel_right_speed)
+        self.left_motor_speed_bar = SpeedBar(self.frame_left, "L", self.motors.get_relative_left_motor_speed)
+        self.right_motor_speed_bar = SpeedBar(self.frame_left, "R", self.motors.get_relative_right_motor_speed)
         self.motors_speed_frame = tk.LabelFrame(master=self.frame_left, bg=self.bg_color, text="Motors speed")
         self.motors_speed_label = tk.Label(master=self.motors_speed_frame, bg=self.bg_color, anchor="w",
                                            text=" Left motor speed:   {1:7.0f}% \n"
                                                 "Right motor speed: {1:7.0f}%".format(
-                                                int(100 * self.motors.get_rel_left_speed()),
-                                                int(100 * self.motors.get_rel_right_speed())
+                                                int(100 * self.motors.get_relative_left_motor_speed()),
+                                                int(100 * self.motors.get_relative_right_motor_speed())
                                            ))
         self.last_measured_motors_speeds = (-1, -1)
 
@@ -59,12 +59,12 @@ class MainApplication(tk.Frame):
             data to be displayed properly.
             :return: None
             """
-            if not self.last_measured_motors_speeds == (self.motors.get_rel_left_speed(), self.motors.get_rel_right_speed()):
-                self.last_measured_motors_speeds = (self.motors.get_rel_left_speed(), self.motors.get_rel_right_speed())
+            if not self.last_measured_motors_speeds == (self.motors.get_relative_left_motor_speed(), self.motors.get_relative_right_motor_speed()):
+                self.last_measured_motors_speeds = (self.motors.get_relative_left_motor_speed(), self.motors.get_relative_right_motor_speed())
                 self.motors_speed_label.config(text=" Left motor speed:   {0:7.0f}% \n"
                 "Right motor speed: {1:7.0f}%".format(
-                    int(100 * self.motors.get_rel_left_speed()),
-                    int(100 * self.motors.get_rel_right_speed())))
+                    int(100 * self.motors.get_relative_left_motor_speed()),
+                    int(100 * self.motors.get_relative_right_motor_speed())))
             self.after(50, upadate_motor_speed_label)
 
         upadate_motor_speed_label()
@@ -123,29 +123,25 @@ class MainApplication(tk.Frame):
         This function binds keyboard keys to functions.
         :return: None
         """
-        def start_photo():
-            self.photo_button.change_image("icons/aparat4.png")
+        keys_list = self._read_default_keyboard_settings()
+        self.keyboard.add_keys(keys_list)
 
-        def end_photo():
-            self.photo()
-            self.photo_button.change_image("icons/aparat5.png")
+    def _read_default_keyboard_settings(self):
+        keys_list = []
+        with open("saves/default_settings.txt") as file:
+            for line in file:
+                key_data = line.split()
+                key = self._create_new_key(key_data)
+                keys_list.append(key)
+        return keys_list
 
-        keys = {
-            "up": (self.joystick.start, self.joystick.drive_forward, self.joystick.stop),
-            "down": (self.joystick.start, self.joystick.drive_backward, self.joystick.stop),
-            "left": (self.joystick.start, self.joystick.turn_left, self.joystick.stop),
-            "right": (self.joystick.start, self.joystick.turn_right, self.joystick.stop),
-            "e": (start_photo, None, end_photo),
-            "r": (self.video, None, None),
-            "w": (None, self.speed_limit_up, None),
-            "s": (None, self.speed_limit_down, None)
-        }
-        self.keyboard.add_functions(keys)
-
-        def update_keyboard():
-            self.keyboard.update()
-            self.after(5, update_keyboard)
-        update_keyboard()
+    def _create_new_key(self, key_data):
+        new_key = Key()
+        new_key.name = key_data[0]
+        new_key.set_function_on_press(eval(key_data[1]))
+        new_key.set_function_on_hold(eval(key_data[2]))
+        new_key.set_function_on_release(eval(key_data[3]))
+        return new_key
 
     def photo(self):
         """
@@ -155,13 +151,20 @@ class MainApplication(tk.Frame):
         print("pstryk")
         self.camera.take_photo()
 
+    def start_photo(self):
+        self.photo_button.change_image("icons/aparat4.png")
+
+    def end_photo(self):
+        self.photo()
+        self.photo_button.change_image("icons/aparat5.png")
+
     def video(self):
         """
         This function allows you to start and stop video.
         :return: None
         """
         self.video_button.click()
-        if self.video_button.clicks % 2 == 1:
+        if self.video_button.counted_clicks % 2 == 1:
             self.video_button.change_image("icons/stop.png")
             self.camera.prepare_recording()
             self.camera.isrecording = True

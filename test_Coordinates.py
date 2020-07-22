@@ -1,5 +1,5 @@
 import unittest
-from Coordinates import Coordinates
+from Geometry import Coordinates
 from math import pi
 
 
